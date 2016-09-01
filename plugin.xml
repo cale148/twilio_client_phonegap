@@ -8,6 +8,10 @@
     <author>Stevie Graham/Lyle Pratt/Jeff Linwood/Ben Pedersen/Andrey Fuks</author>
     <license>Apache</license>
 
+    <js-module src="www/tcPlugin.js" name="TCPlugin">
+      <clobbers target="window.Twilio"/>		
+    </js-module>
+
     <!-- android -->
     <platform name="android">
         <config-file target="AndroidManifest.xml" parent="/manifest">
