@@ -2,11 +2,15 @@
 <plugin xmlns="http://www.phonegap.com/ns/plugins/1.0"
     xmlns:android="http://schemas.android.com/apk/res/android"
     id="com.phonegap.plugins.twilioclient"
-    version="1.0.13">
+    version="1.0.14">
     <name>TwilioClient</name>
     <description>Use the native Twilio Client for iOS or Android with Cordova/PhoneGap and the Twilio Client JavaScript API</description>
     <author>Stevie Graham/Lyle Pratt/Jeff Linwood/Ben Pedersen/Andrey Fuks</author>
     <license>Apache</license>
+
+    <js-module src="www/tcPlugin.js" name="TCPlugin">
+      <clobbers target="window.Twilio"/>		
+    </js-module>
 
     <!-- android -->
     <platform name="android">
@@ -38,8 +42,6 @@
                 target-dir="libs/armeabi" />
         <source-file src="sdk/android/libs/armeabi-v7a/libtwilio-native.so"
                 target-dir="libs/armeabi-v7a" />
-        <source-file src="sdk/android/libs/mips/libtwilio-native.so"
-                target-dir="libs/mips" />
         <source-file src="sdk/android/libs/x86/libtwilio-native.so"
                 target-dir="libs/x86" />
         <source-file src="sdk/android/libs/x86_64/libtwilio-native.so"
@@ -72,7 +74,7 @@
                 <string>audio</string>
             </array>
         </config-file>
-        
+
 
         <framework src="AudioToolbox.framework" />
         <framework src="AVFoundation.framework" />
