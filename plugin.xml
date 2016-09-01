@@ -38,8 +38,6 @@
                 target-dir="libs/armeabi" />
         <source-file src="sdk/android/libs/armeabi-v7a/libtwilio-native.so"
                 target-dir="libs/armeabi-v7a" />
-        <source-file src="sdk/android/libs/mips/libtwilio-native.so"
-                target-dir="libs/mips" />
         <source-file src="sdk/android/libs/x86/libtwilio-native.so"
                 target-dir="libs/x86" />
         <source-file src="sdk/android/libs/x86_64/libtwilio-native.so"
