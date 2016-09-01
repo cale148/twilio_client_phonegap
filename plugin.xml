@@ -10,9 +10,6 @@
 
     <!-- android -->
     <platform name="android">
-        <js-module src="www/tcPlugin.js" name="TCPlugin">
-            <clobbers target="window.Twilio"/>
-        </js-module>
         <config-file target="AndroidManifest.xml" parent="/manifest">
                 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
             <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -52,9 +49,6 @@
 
     <!-- ios -->
     <platform name="ios">
-        <js-module src="www/tcPlugin.js" name="TCPlugin">
-            <clobbers target="window.Twilio"/>
-        </js-module>
         <!-- Add the Twilio Client plugin to the iOS app's config.xml -->
         <config-file target="config.xml" parent="widget">
           <feature name="TCPlugin">
