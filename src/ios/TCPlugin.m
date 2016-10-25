@@ -50,7 +50,7 @@
 }
 
 -(void)device:(TCDevice *)device didReceivePresenceUpdate:(TCPresenceEvent *)presenceEvent {
-    NSNumber *available = [NSNumber numberWithBool:presenceEvent.isAvailable];
+    NSString *available = [NSString stringWithFormat:@"%d", presenceEvent.isAvailable];
     NSDictionary *object = [NSDictionary dictionaryWithObjectsAndKeys:presenceEvent.name, @"from", available, @"available", nil];
     [self javascriptCallback:@"onpresence" withArguments:object];
 }
@@ -87,7 +87,7 @@
 -(void)deviceSetup:(CDVInvokedUrlCommand*)command {
     self.callback = command.callbackId;
     _nbRepeats = 0;
-    
+
     self.device = [[TCDevice alloc] initWithCapabilityToken:command.arguments[0] delegate:self];
 
     // Disable sounds. was getting EXC_BAD_ACCESS
@@ -95,43 +95,60 @@
     //self.device.outgoingSoundEnabled   = NO;
     //self.device.disconnectSoundEnabled = NO;
 
-    _timer = [NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(deviceStatusEvent) userInfo:nil repeats:YES];
+    _timer = [NSTimer scheduledTimerWithTimeInterval:5.0 target:self selector:@selector(deviceStatusEvent) userInfo:nil repeats:YES];
+}
+
+-(void)reset:(CDVInvokedUrlCommand*)command {
+     if(self.device != nil) {
+         [self.device disconnectAll];
+         self.device.delegate = nil;
+         self.device = nil;
+     }
+}
+
+
+- (void)onAppTerminate {
+    if(self.device != nil) {
+          [self.device disconnectAll];
+          self.device.delegate = nil;
+          self.device = nil;
+    }
 }
 
 -(void)deviceStatusEvent {
-    
+
     NSLog(@"Device state: %ld",(long) self.device.state);
-    
+
     switch ([self.device state]) {
-            
+
         case TCDeviceStateReady:
             [self javascriptCallback:@"onready"];
             NSLog(@"State: Ready");
-            
+
             [_timer invalidate];
             _timer = nil;
-            
+
             break;
-            
+
         case TCDeviceStateOffline:
             [self javascriptCallback:@"onoffline"];
             NSLog(@"State: Offline");
-            
+
             if ((long)_nbRepeats>20){
-                
+
                 [_timer invalidate];
                 _timer = nil;
                 _nbRepeats = 0;
             }
             else _nbRepeats++;
-            
+
             break;
-            
+
         default:
-            
+
             [_timer invalidate];
             _timer = nil;
-            
+
             break;
     }
 }
@@ -146,27 +163,27 @@
 
 -(void)deviceStatus:(CDVInvokedUrlCommand*)command {
     NSString *state;
-    
+
     NSLog(@"Device state: %ld",(long) self.device.state);
-    
+
     switch ([self.device state]) {
         case TCDeviceStateBusy:
             state = @"busy";
             break;
-            
+
         case TCDeviceStateReady:
             state = @"ready";
             break;
-            
+
         case TCDeviceStateOffline:
             state = @"offline";
             break;
-            
+
         default:
-            break;        
+            break;
     }
-    
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:state];    
+
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:state];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
@@ -186,11 +203,16 @@
 }
 
 -(void)muteConnection:(CDVInvokedUrlCommand*)command {
-    if(self.connection.isMuted) {
-        self.connection.muted = NO;
-    } else {
-        self.connection.muted = YES;
-    }
+    self.connection.muted = YES;
+}
+
+-(void)unmuteConnection:(CDVInvokedUrlCommand*)command {
+    self.connection.muted = NO;
+}
+
+-(void)isConnectionMuted:(CDVInvokedUrlCommand*)command {
+  CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:self.connection.muted];
+  [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
 -(void)sendDigits:(CDVInvokedUrlCommand*)command {
@@ -199,28 +221,28 @@
 
 -(void)connectionStatus:(CDVInvokedUrlCommand*)command {
     NSString *state;
-    
+
     switch ([self.connection state]) {
         case TCConnectionStateConnected:
             state = @"open";
             break;
-            
+
         case TCConnectionStateConnecting:
             state = @"connecting";
             break;
-            
+
         case TCConnectionStatePending:
             state = @"pending";
             break;
-            
+
         case TCConnectionStateDisconnected:
             state = @"closed";
-        
+
         default:
-            break;        
+            break;
     }
-        
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:state];    
+
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:state];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
@@ -237,9 +259,9 @@
     @catch(NSException *exception) {
         NSLog(@"Couldn't Cancel Notification");
     }
-    
+
     NSString *alertBody = [command.arguments objectAtIndex:0];
-    
+
     NSString *ringSound = @"incoming.wav";
     if([command.arguments count] == 2) {
         ringSound = [command.arguments objectAtIndex:1];
@@ -259,23 +281,59 @@
 }
 
 -(void)setSpeaker:(CDVInvokedUrlCommand*)command {
-    NSString *mode = [command.arguments objectAtIndex:0];
-    if([mode isEqual: @"on"]) {
-        UInt32 audioRouteOverride = kAudioSessionOverrideAudioRoute_Speaker;
-        AudioSessionSetProperty (
-            kAudioSessionProperty_OverrideAudioRoute,
-            sizeof (audioRouteOverride),
-            &audioRouteOverride
-        );
-    }
-    else {
-        UInt32 audioRouteOverride = kAudioSessionOverrideAudioRoute_None;
-        AudioSessionSetProperty (
-            kAudioSessionProperty_OverrideAudioRoute,
-            sizeof (audioRouteOverride),
-            &audioRouteOverride
-        );
-    }
+   NSString *mode = [command.arguments objectAtIndex:0];
+   BOOL success;
+   NSError *error;
+
+   // set the audioSession category.
+   // Needs to be Record or PlayAndRecord to use audioRouteOverride:
+
+   if([mode isEqual: @"on"]) {
+
+       NSLog(@"on");
+
+       // Set the audioSession override
+       success = [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayAndRecord
+                                                  withOptions:AVAudioSessionCategoryOptionDefaultToSpeaker
+                                                        error: &error];
+       if (!success) {
+           NSLog(@"AVAudioSession error setting category:%@",error);
+       }
+
+       // Doubly force audio to come out of speaker
+       UInt32 audioRouteOverride = kAudioSessionOverrideAudioRoute_Speaker;
+       AudioSessionSetProperty (kAudioSessionProperty_OverrideAudioRoute, sizeof(audioRouteOverride), &audioRouteOverride);
+
+       // Force audio to come out of speaker
+       success = [[AVAudioSession sharedInstance] overrideOutputAudioPort:AVAudioSessionPortOverrideSpeaker error:nil];
+
+   } else {
+
+       success = [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayAndRecord
+                                                       error:&error];
+
+       if (!success) {
+           NSLog(@"AVAudioSession error setting category:%@",error);
+       }
+
+       success = [[AVAudioSession sharedInstance] overrideOutputAudioPort:AVAudioSessionPortOverrideNone
+                                                                    error:&error];
+   }
+
+   if (!success) {
+     NSLog(@"AVAudioSession error overrideOutputAudioPort:%@",error);
+   } else {
+     NSLog(@"successfully set AVAudioSessionPortOverride to %@ with error %@", mode, error);
+   }
+
+   // Activate the audio session
+   success = [[AVAudioSession sharedInstance] setActive:YES error:&error];
+   if (!success) {
+       NSLog(@"AVAudioSession error activating: %@",error);
+   }
+   else {
+        NSLog(@"AudioSession active");
+   }
 }
 
 # pragma mark private methods
@@ -284,7 +342,7 @@
     NSDictionary *options   = [NSDictionary dictionaryWithObjectsAndKeys:event, @"callback", arguments, @"arguments", nil];
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:options];
     result.keepCallback     = [NSNumber numberWithBool:YES];
-    
+
     [self.commandDelegate sendPluginResult:result callbackId:self.callback];
 }
 
@@ -296,7 +354,7 @@
     NSDictionary *object    = [NSDictionary dictionaryWithObjectsAndKeys:[error localizedDescription], @"message", nil];
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:object];
     result.keepCallback     = [NSNumber numberWithBool:YES];
-    
+
     [self.commandDelegate sendPluginResult:result callbackId:self.callback];
 }
 
